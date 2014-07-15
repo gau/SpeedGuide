@@ -14,7 +14,7 @@ var settings = {
 };
 
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.5";
+const SCRIPT_VERSION = "0.6.0";
 var dialogs = {main:null, csv:null, showall:null};
 
 //==================================================
@@ -105,7 +105,7 @@ var initMainDialog = function(w){
 		settings.clearall = thisObj.clearall.value;
 		thisObj.close();
 		try {
-			app.activeDocument.suspendHistory(SCRIPT_TITLE, 'init()');
+			app.activeDocument.suspendHistory(SCRIPT_TITLE, 'sgStart()');
 		} catch (e) {
 			alert("エラーが発生しました\n" + e);
 			executeAction( charIDToTypeID('undo'), undefined, DialogModes.NO );
@@ -213,11 +213,16 @@ if(documents.length > 0) {
 //==================================================
 //初期処理
 //==================================================
-function init(){
-	var vgs = getNumbers(settings.ver, Direction.VERTICAL), hgs = getNumbers(settings.hor, Direction.HORIZONTAL);
+function sgStart(){
+	var vgs, hgs, errorArray;
+	//var vgs = getNumbers(settings.ver, Direction.VERTICAL), hgs = getNumbers(settings.hor, Direction.HORIZONTAL);
 	if(settings.clearall) app.activeDocument.guides.removeAll();
-	addGuides(vgs);
-	addGuides(hgs);
+	vgs = addGuides(getNumbers(settings.ver, Direction.VERTICAL));
+	hgs = addGuides(getNumbers(settings.hor, Direction.HORIZONTAL));
+	errorArray = vgs.concat(hgs);
+	if(errorArray.length > 0) {
+		alert("無効な値があったため " + errorArray.length + " 本のガイドが作成できませんでした\n無効：" + errorArray);
+	}
 }
 
 //==================================================
@@ -231,7 +236,8 @@ function addGuides(guideData){
 	for (i=0; i<guideData.length; i++){
 
 		//値が有効かどうか
-		if(!guideData[i] || guideData[i].units == "?") {
+		//alert(guideData[i].unitvalue.type);
+		if(!guideData[i].val || !guideData[i].units || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
 			errorArray.push("\"" + guideData[i].origin + "\"");
 		} else {
 			//ガイドを引く
@@ -239,9 +245,7 @@ function addGuides(guideData){
 			app.activeDocument.guides.add(guideData[i].direction, guideData[i].unitvalue.as("px")*raito+"px");
 		}
 	}
-	if(errorArray.length > 0) {
-		alert("無効な値があったため " + errorArray.length + " 本のガイドが作成できませんでした\n無効：" + errorArray);
-	}
+	return errorArray;
 }
 
 //==================================================
@@ -280,15 +284,14 @@ function getNumbers(str, drc){
 			i--;
 		} else {
 			re = /^(.*[^a-z%])([a-z%]*)$/gi.exec(splitArray[i]);
-			if(re || re.length < 3) {
-				if(re[2].length < 1) re[2] = new UnitValue(castValue(1)).type;
+			if(re && re.length > 2) {
+				if(re[2].length < 1 ) re[2] = new UnitValue(castValue(1)).type;
 				guideData[i] = {origin:splitArray[i], val:re[1], units:re[2], unitvalue:null, direction:drc};
 			} else {
 				guideData[i] = {origin:splitArray[i], val:null, units:null, unitvalue:null, direction:drc};
 			}
 		}
 	}
-
 	//値に対する諸々の処理を施して使えるデータにする
 	for(i=0; i<guideData.length; i++){
 
