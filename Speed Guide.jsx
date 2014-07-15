@@ -1,9 +1,7 @@
 #target photoshop
-/*==================================
 //SpeedGuide.jsx
 //Created by Toshiyuki Takahashi - Graphic Arts Unit
 //www.graphicartsunit.com
-==================================*/
 
 //==================================================
 //初期値
@@ -22,7 +20,7 @@ var dialogs = {main:null, csv:null, showall:null};
 //==================================================
 //メインダイアログ
 //==================================================
-createMainDialog = function(){
+var createMainDialog = function(){
 
 	var dlg = new Window("dialog", SCRIPT_TITLE + " - ver." + SCRIPT_VERSION);
 	dlg.exFlag = false;
@@ -76,7 +74,7 @@ createMainDialog = function(){
 	return dlg;  
 
 }
-initMainDialog = function(w){  
+var initMainDialog = function(w){  
 	w.onShow=function(){
 		this.ver.active = true;
 	}
@@ -114,14 +112,14 @@ initMainDialog = function(w){
 		}
 	}
  };
-startMainDialog = function(w){
+var startMainDialog = function(w){
 	return w.show();
 };
 
 //==================================================
 //CSVダイアログ
 //==================================================
-createCSVDialog = function(data){
+var createCSVDialog = function(data){
 
 	var dlg = new Window("dialog", "CSVから値を読み込む");
 	dlg.maximumSize = [650, 600];
@@ -162,7 +160,7 @@ createCSVDialog = function(data){
 	return dlg;  
 
 }
-initCSVDialog = function(w){  
+var initCSVDialog = function(w){  
 	w.cancel.onClick=function(){
 		var thisObj = this.parent.parent;
 		thisObj.close();
@@ -176,14 +174,14 @@ initCSVDialog = function(w){
 		thisObj.close();
 	}
  };
-startCSVDialog = function(w){
+var startCSVDialog = function(w){
 	return w.show();
 };
 
 //==================================================
 //現在のガイド表示ダイアログ
 //==================================================
-createShowAllDialog = function(){
+var createShowAllDialog = function(){
 	var data = getAllGuide();
 	var dlg = new Window('dialog', "現在の画像のダイアログ");
 	dlg.csvStr = dlg.add( 'edittext', undefined, data[0], {multiline:true});
@@ -195,12 +193,12 @@ createShowAllDialog = function(){
 	dlg.okBtn = dlg.add( 'button', undefined, 'OK', { name:'ok' });  
 	return dlg;  
 };
-initShowAllDialog = function(w){  
+var initShowAllDialog = function(w){  
 	w.okBtn.onClick = function(){
 		w.close(1);
 	};
  };
-startShowAllDialog = function(w){
+var startShowAllDialog = function(w){
 	return w.show();
 };
 
