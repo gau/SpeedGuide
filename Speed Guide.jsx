@@ -14,7 +14,7 @@ var settings = {
 };
 
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.6.0";
+const SCRIPT_VERSION = "0.6.1";
 var dialogs = {main:null, csv:null, showall:null};
 
 //==================================================
@@ -219,7 +219,13 @@ function sgStart(){
 	if(settings.clearall) app.activeDocument.guides.removeAll();
 	vgs = addGuides(getNumbers(settings.ver, Direction.VERTICAL));
 	hgs = addGuides(getNumbers(settings.hor, Direction.HORIZONTAL));
-	errorArray = vgs.concat(hgs);
+	if(vgs && hgs) {
+		errorArray = vgs.concat(hgs);
+	} else if(vgs) {
+		errorArray = vgs;
+	} else if(hgs) {
+		errorArray = hgs;
+	}
 	if(errorArray.length > 0) {
 		alert("無効な値があったため " + errorArray.length + " 本のガイドが作成できませんでした\n無効：" + errorArray);
 	}
@@ -236,8 +242,7 @@ function addGuides(guideData){
 	for (i=0; i<guideData.length; i++){
 
 		//値が有効かどうか
-		//alert(guideData[i].unitvalue.type);
-		if(!guideData[i].val || !guideData[i].units || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
+		if(!Number(guideData[i].val) || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
 			errorArray.push("\"" + guideData[i].origin + "\"");
 		} else {
 			//ガイドを引く
@@ -252,6 +257,7 @@ function addGuides(guideData){
 //データの整形
 //==================================================
 function getNumbers(str, drc){
+
 	var splitArray, re, guideData=[], raito;
 
 	//全角を半角に変換してスペースで分割
@@ -292,6 +298,7 @@ function getNumbers(str, drc){
 			}
 		}
 	}
+
 	//値に対する諸々の処理を施して使えるデータにする
 	for(i=0; i<guideData.length; i++){
 
@@ -300,7 +307,7 @@ function getNumbers(str, drc){
 
 			try {
 				//四則演算
-				guideData[i].val = eval(guideData[i].val);
+				if(Number(eval(guideData[i].val))) guideData[i].val = eval(guideData[i].val);
 			} catch(e) {
 				try {
 					//逆起点（:が付加された数値）
