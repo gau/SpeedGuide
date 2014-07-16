@@ -15,7 +15,7 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.6.5";
+const SCRIPT_VERSION = "0.6.6";
 var dialogs = {main:null, csv:null, showall:null};
 
 //==================================================
@@ -253,7 +253,7 @@ function addGuides(guideData){
 	//ガイド追加処理
 	for (i=0; i<guideData.length; i++){
 		//値が有効かどうか
-		if(isNaN(Number(guideData[i].val)) || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
+		if(!guideData[i].val || isNaN(Number(guideData[i].val)) || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
 			//エラーを追加
 			errorArray.push("\"" + guideData[i].origin + "\"");
 		} else {
