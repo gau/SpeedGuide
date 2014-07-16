@@ -7,15 +7,15 @@
 //初期値
 //==================================================
 var settings = {
-	ver : '',
-	hor : '',
+	ver : "",
+	hor : "",
 	clearall : false,
 	quickcopy : true
 };
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.6.6";
+const SCRIPT_VERSION = "0.6.7";
 var dialogs = {main:null, csv:null, showall:null};
 
 //==================================================
@@ -246,7 +246,7 @@ function sgStart(){
 //==================================================
 function addGuides(guideData){
 
-	var errorArray=[], raito;
+	var errorArray=[];
 
 	//引数をチェック
 	if(!guideData || guideData.length < 1) return false;
@@ -258,8 +258,7 @@ function addGuides(guideData){
 			errorArray.push("\"" + guideData[i].origin + "\"");
 		} else {
 			//ガイドを引く
-			(guideData[i].units == "px")? raito = 1 : raito = app.activeDocument.resolution/72 ;
-			app.activeDocument.guides.add(guideData[i].direction, guideData[i].unitvalue.as("px")*raito+"px");
+			app.activeDocument.guides.add(guideData[i].direction, guideData[i].unitvalue);
 		}
 	}
 	return errorArray;
@@ -270,7 +269,7 @@ function addGuides(guideData){
 //==================================================
 function getNumbers(str, drc) {
 
-	var splitArray, re, guideData=[], raito, docSize;
+	var splitArray, re, guideData=[];
 
 	//引数をチェック
 	if(str.length < 1) return false;
@@ -287,32 +286,24 @@ function getNumbers(str, drc) {
 			i--;
 		} else {
 			re = /^(.*[^a-z%])([a-z%]*)$/gi.exec(splitArray[i]);
-			guideData[i] = {origin:splitArray[i], val:null, units:null, unitvalue:null, direction:drc};
+			guideData[i] = {origin:splitArray[i], val:null, units:null, unitvalue:null, invert:false, direction:drc};
 			if(re && re.length>2) {
 				if(re[2].length<1) re[2] = new UnitValue(castValue(1)).type;
 				if(new UnitValue(re[1], re[2]).type != "?") {
-					guideData[i] = {origin:splitArray[i], val:re[1], units:re[2], unitvalue:null, direction:drc};
+					guideData[i] = {origin:splitArray[i], val:re[1], units:re[2], unitvalue:null, invert:false, direction:drc};
 				}
 			}
 		}
 	}
 	//値に処理を施して使えるデータにする
-	for(i=0; i<guideData.length; i++){
-		if(guideData[i].val){
-			//解像度比率を取得
-			(guideData[i].units == "px")? raito = 1 : raito = app.activeDocument.resolution/72 ;
-			//ドキュメントサイズを取得
-			if(guideData[i].units == "%") {
-			 	docSize = getDocSize(drc, Units.PERCENT);
-			} else {
-				docSize = new UnitValue(getDocSize(drc, Units.PIXELS)/raito,"px");
-				docSize = docSize.as(guideData[i].units);
-			}
+	for(i=0; i<guideData.length; i++) {
+		if(guideData[i].val) {
 			//数値じゃない場合の処理
 			if(isNaN(guideData[i].val)){
 				//逆起点を処理（:が付加された数値）
 				if(guideData[i].val.match(/^:/)){
-					guideData[i].val = guideData[i].val.replace(/^:/, docSize + "-[");
+					guideData[i].invert = true;
+					guideData[i].val = guideData[i].val.replace(/^:/, getDocSize(guideData[i].direction, guideData[i].units) + "-[");
 					guideData[i].val = guideData[i].val.replace(/$/, "]");
 				}
 				//四則演算可能な値を絞り込み
@@ -329,14 +320,14 @@ function getNumbers(str, drc) {
 			//数値の場合の処理
 			if(!isNaN(guideData[i].val)){
 				if(guideData[i].units == "%") {
-					guideData[i].units = "px";
-					guideData[i].unitvalue = new UnitValue(getDocSize(drc, Units.PIXELS) * (guideData[i].val/100));
-				} else {
-					guideData[i].unitvalue = new UnitValue(guideData[i].val, guideData[i].units);
+					if(guideData[i].val != 0) {
+					 	guideData[i].val = guideData[i].val/100;
+					}
 				}
+				guideData[i].unitvalue = new UnitValue(guideData[i].val, guideData[i].units);
 			}
 		} else {
-			//alert("数値がNull");
+			//alert("Null");
 		}
 	}
 	return guideData;
@@ -347,28 +338,51 @@ function getNumbers(str, drc) {
 //==================================================
 function getDocSize(drc, unit) {
 
-	var docSize, sru;
+	var docSize, sru, raito = 1;
 
 	//単位のチェック（%のときは100で返す）
 	if(!unit){
-		unit = app.preferences.rulerUnits;
-	} else if(unit == Units.PERCENT) {
+		unit = new UnitValue(castValue(1)).type;
+	} else if(unit == "%") {
 		return 100;
 	}
-	//単位を変更してドキュメントサイズを取得
+	//向きのチェック
+	if(drc != Direction.VERTICAL && drc != Direction.HORIZONTAL){
+		return false;
+	}
+	//現在の定規単位を保存
 	sru = app.preferences.rulerUnits;
-	if(unit) app.preferences.rulerUnits = unit;
+	//定規単位が%のときはPixelに変更
+	if(app.preferences.rulerUnits == Units.PERCENT) app.preferences.rulerUnits = Units.PIXELS;
+	//ドキュメントサイズを取得する
+	var docUnits = new UnitValue(castValue(1)).type;
 	switch(drc) {
 		case Direction.VERTICAL:
-			docSize = app.activeDocument.width;
+			docSize = new UnitValue(app.activeDocument.width, docUnits);
 			break;
 		case Direction.HORIZONTAL:
-			docSize = app.activeDocument.height;
+			docSize = new UnitValue(app.activeDocument.height, docUnits);
 			break;
 		default:
 			break;
 	}
+	//定規単位を戻す
 	app.preferences.rulerUnits = sru;
+	//値の変換
+	if(unit != docUnits) {
+		if(app.preferences.rulerUnits == Units.PIXELS || app.preferences.rulerUnits == Units.PERCENT) raito = Math.round(app.activeDocument.resolution/72*100)/100;
+	// if(docUnits == "px") {
+			docSize = docSize.as(unit)/raito;		
+	// } else {
+	// 	docSize = docSize.as(unit)*raito;		
+	// }
+	}
+	if(unit == "px") {
+		docSize = Math.round(docSize);
+	} else {
+		docSize = Math.round(docSize*100)/100;
+	}
+
 	return docSize;
 }
 
@@ -457,4 +471,15 @@ function getObjectKeys(obj) {
 		++n;
 	}
 	return n;
+}
+
+//==================================================
+//オブジェクトのプロパティ一覧を返す
+//==================================================
+function printProperties(obj) {
+	var properties = '';
+	for (var prop in obj){
+		properties += prop + "=" + obj[prop] + "\n";
+	}
+	alert(properties);
 }
