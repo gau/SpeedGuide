@@ -7,16 +7,17 @@
 //初期値
 //==================================================
 var settings = {
-	ver : "",
-	hor : "",
+	ver : "0mm |20+10mm 50% |:20+10mm :0mm",
+	hor : "0mm |20+10mm 50% |:20+10mm :0mm",
 	clearall : false,
 	quickcopy : true
 };
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.6.7";
+const SCRIPT_VERSION = "0.7.0";
 var dialogs = {main:null, csv:null, showall:null};
+var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
 //==================================================
 //メインダイアログ
@@ -38,7 +39,7 @@ var createMainDialog = function(){
 	dlg.horlabel = dlg.pGuide.add("statictext", undefined, "水平："); 
 	dlg.hor = dlg.pGuide.add("edittext", undefined, settings.hor);
 	dlg.hor.minimumSize = [550, 10];
-	for (i=0; i<dlg.pGuide.children.length; i++){
+	for (var i=0; i<dlg.pGuide.children.length; i++){
 		dlg.pGuide.children[i].alignment = "left";
 	}
 	//オプションパネル
@@ -47,7 +48,7 @@ var createMainDialog = function(){
 	//オプション1
 	dlg.clearall = dlg.pOption.add("checkbox", undefined, "既存のガイドを全消去する", {value:settings.clearall});
 	dlg.clearall.minimumSize = [550, 10];
-	for (i=0; i<dlg.pOption.children.length; i++){
+	for (var i=0; i<dlg.pOption.children.length; i++){
 		dlg.pOption.children[i].alignment = "left";
 	}
 	//ボタングループ
@@ -128,7 +129,7 @@ var createCSVDialog = function(data){
 	dlg.pCSV = dlg.add("panel", undefined, "CSV");
 	dlg.pCSV.margins = [20, 20, 20, 20];
 	//ドロップダウンリスト用の配列作成
-	for (i=0; i<data.length; i++) {
+	for (var i=0; i<data.length; i++) {
 		dlg.listItems[i] = data[i][0];
 	}
 	//ドロップダウンリスト
@@ -251,7 +252,7 @@ function addGuides(guideData){
 	//引数をチェック
 	if(!guideData || guideData.length < 1) return false;
 	//ガイド追加処理
-	for (i=0; i<guideData.length; i++){
+	for (var i=0; i<guideData.length; i++){
 		//値が有効かどうか
 		if(!guideData[i].val || isNaN(Number(guideData[i].val)) || !guideData[i].direction || guideData[i].unitvalue.type == "?") {
 			//エラーを追加
@@ -269,7 +270,7 @@ function addGuides(guideData){
 //==================================================
 function getNumbers(str, drc) {
 
-	var splitArray, re, guideData=[];
+	var splitArray, re, docSize, guideData=[];
 
 	//引数をチェック
 	if(str.length < 1) return false;
@@ -280,31 +281,38 @@ function getNumbers(str, drc) {
 	});
 	//配列を分割してハッシュに
 	splitArray = str.split(" ");
-	for(i=0; i<splitArray.length; i++){
+	for (var i=0; i<splitArray.length; i++){
 		if(splitArray[i].length < 1) {
 			splitArray.splice(i, 1);
 			i--;
 		} else {
 			re = /^(.*[^a-z%])([a-z%]*)$/gi.exec(splitArray[i]);
-			guideData[i] = {origin:splitArray[i], val:null, units:null, unitvalue:null, invert:false, direction:drc};
+			guideData[i] = {origin:splitArray[i], val:null, units:null, unitvalue:null, invert:false, center:false, direction:drc};
 			if(re && re.length>2) {
 				if(re[2].length<1) re[2] = new UnitValue(castValue(1)).type;
 				if(new UnitValue(re[1], re[2]).type != "?") {
-					guideData[i] = {origin:splitArray[i], val:re[1], units:re[2], unitvalue:null, invert:false, direction:drc};
+					guideData[i] = {origin:splitArray[i], val:re[1], units:re[2], unitvalue:null, invert:false, center:false, direction:drc};
 				}
 			}
 		}
 	}
 	//値に処理を施して使えるデータにする
-	for(i=0; i<guideData.length; i++) {
+	for(var i=0; i<guideData.length; i++) {
 		if(guideData[i].val) {
+			//ドキュメントサイズを取得
+			docSize = getDocSize(guideData[i].direction, guideData[i].units);
 			//数値じゃない場合の処理
 			if(isNaN(guideData[i].val)){
-				//逆起点を処理（:が付加された数値）
-				if(guideData[i].val.match(/^:/)){
-					guideData[i].invert = true;
-					guideData[i].val = guideData[i].val.replace(/^:/, getDocSize(guideData[i].direction, guideData[i].units) + "-[");
-					guideData[i].val = guideData[i].val.replace(/$/, "]");
+				//起点を取得（:や|が付加された数値）
+				if(guideData[i].val.match(/^:|\|/)){
+					if(guideData[i].val.match(/:/)){
+						guideData[i].invert = true;
+						guideData[i].val = guideData[i].val.replace(/:/, "");
+					}
+					if(guideData[i].val.match(/\|/)) {
+						guideData[i].center = true;
+						guideData[i].val = guideData[i].val.replace(/\|/, "");
+					}
 				}
 				//四則演算可能な値を絞り込み
 				if(guideData[i].val.match(/^[\(\{\[\-\+0-9][\(\{\[\-\+\*\/\)\}\]\.0-9]*[\)\}\]0-9]$/)){
@@ -316,13 +324,17 @@ function getNumbers(str, drc) {
 				} else {
 					//alert("演算不可");
 				}
+				//起算位置をシフト
+				if(guideData[i].center) guideData[i].val += docSize/2;
+				if(guideData[i].invert) guideData[i].val = docSize - guideData[i].val;
 			}
 			//数値の場合の処理
 			if(!isNaN(guideData[i].val)){
 				if(guideData[i].units == "%") {
-					if(guideData[i].val != 0) {
-					 	guideData[i].val = guideData[i].val/100;
-					}
+					if(guideData[i].val != 0) guideData[i].val = guideData[i].val/100;
+				} else if(arrayIndexOf(enableUnits, new UnitValue(1, guideData[i].units).type)) {
+					guideData[i].val == new UnitValue(guideData[i].val, guideData[i].units).as("cm");
+					guideData[i].units == "cm";
 				}
 				guideData[i].unitvalue = new UnitValue(guideData[i].val, guideData[i].units);
 			}
@@ -345,6 +357,9 @@ function getDocSize(drc, unit) {
 		unit = new UnitValue(castValue(1)).type;
 	} else if(unit == "%") {
 		return 100;
+	} else {
+		//単位表記の統一
+		unit = new UnitValue(1, unit).type;
 	}
 	//向きのチェック
 	if(drc != Direction.VERTICAL && drc != Direction.HORIZONTAL){
@@ -369,20 +384,16 @@ function getDocSize(drc, unit) {
 	//定規単位を戻す
 	app.preferences.rulerUnits = sru;
 	//値の変換
+	raito = Math.round(app.activeDocument.resolution/72*100)/100;
+	docSize = docSize.as(unit);
 	if(unit != docUnits) {
-		if(app.preferences.rulerUnits == Units.PIXELS || app.preferences.rulerUnits == Units.PERCENT) raito = Math.round(app.activeDocument.resolution/72*100)/100;
-	// if(docUnits == "px") {
-			docSize = docSize.as(unit)/raito;		
-	// } else {
-	// 	docSize = docSize.as(unit)*raito;		
-	// }
+		if(unit == "px" && docUnits != "px") {
+			docSize *= raito;
+		} else if(docUnits == "px") {
+			docSize /= raito;
+		}
 	}
-	if(unit == "px") {
-		docSize = Math.round(docSize);
-	} else {
-		docSize = Math.round(docSize*100)/100;
-	}
-
+	docSize = Math.round(docSize*100)/100;
 	return docSize;
 }
 
@@ -423,7 +434,7 @@ function parseCSV(file){
 	var data=[], lines;
 
 	lines = file.split('\n');
-	for(i=0; i<lines.length; i++){
+	for(var i=0; i<lines.length; i++){
 		if(lines[i].length > 0) {
 			data.push(lines[i].split(','));
 		} else {
@@ -440,7 +451,7 @@ function parseCSV(file){
 function getAllGuide() {
 	var guides = app.activeDocument.guides;
 	var vGuides=[], hGuides=[], spstr = " ";
-	for(i=0; i<guides.length; i++){
+	for(var i=0; i<guides.length; i++){
 		switch(guides[i].direction) {
 			case Direction.VERTICAL :
 				vGuides.push(String(Math.round(guides[i].coordinate*100)/100)+guides[i].coordinate.type.replace(/ /g,""));
@@ -460,6 +471,18 @@ function getAllGuide() {
 //==================================================
 function castValue(n) {
 	return n + app.activeDocument.width - app.activeDocument.width;
+}
+
+//==================================================
+//配列に値が存在するか
+//==================================================
+function arrayIndexOf(ary, d) {
+	for (var i=0; i<ary.length; i++) {
+		if(ary[i] == d) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 //==================================================
