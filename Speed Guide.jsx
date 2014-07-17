@@ -7,15 +7,15 @@
 //初期値
 //==================================================
 var settings = {
-	ver : "0mm |20+10mm 50% |:20+10mm :0mm",
-	hor : "0mm |20+10mm 50% |:20+10mm :0mm",
+	ver : "",
+	hor : "",
 	clearall : false,
 	quickcopy : true
 };
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.7.0";
+const SCRIPT_VERSION = "0.7.1";
 var dialogs = {main:null, csv:null, showall:null};
 var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
@@ -304,32 +304,25 @@ function getNumbers(str, drc) {
 			//数値じゃない場合の処理
 			if(isNaN(guideData[i].val)){
 				//起点を取得（:や|が付加された数値）
-				if(guideData[i].val.match(/^:|\|/)){
+				if(guideData[i].val.match(/^:|\$/)){
 					if(guideData[i].val.match(/:/)){
 						guideData[i].invert = true;
 						guideData[i].val = guideData[i].val.replace(/:/, "");
 					}
-					if(guideData[i].val.match(/\|/)) {
+					if(guideData[i].val.match(/\$/)) {
 						guideData[i].center = true;
-						guideData[i].val = guideData[i].val.replace(/\|/, "");
+						guideData[i].val = guideData[i].val.replace(/\$/, "");
 					}
 				}
-				//四則演算可能な値を絞り込み
-				if(guideData[i].val.match(/^[\(\{\[\-\+0-9][\(\{\[\-\+\*\/\)\}\]\.0-9]*[\)\}\]0-9]$/)){
-					try {
-						guideData[i].val = eval(guideData[i].val);
-					} catch(e) {
-						//alert("演算失敗");
-					}
-				} else {
-					//alert("演算不可");
-				}
-				//起算位置をシフト
-				if(guideData[i].center) guideData[i].val += docSize/2;
-				if(guideData[i].invert) guideData[i].val = docSize - guideData[i].val;
+				//四則演算を処理
+				guideData[i].val = calcValue(guideData[i].val);
 			}
 			//数値の場合の処理
 			if(!isNaN(guideData[i].val)){
+				//起算位置をシフト
+				if(guideData[i].center) guideData[i].val += docSize/2;
+				if(guideData[i].invert) guideData[i].val = docSize - guideData[i].val;
+				//単位別の処理
 				if(guideData[i].units == "%") {
 					if(guideData[i].val != 0) guideData[i].val = guideData[i].val/100;
 				} else if(arrayIndexOf(enableUnits, new UnitValue(1, guideData[i].units).type)) {
@@ -344,6 +337,29 @@ function getNumbers(str, drc) {
 	}
 	return guideData;
 }
+
+//==================================================
+//四則演算の結果を返す（演算付加の場合はそのままの値を返す）
+//==================================================
+function calcValue(val) {
+
+	var reslt;
+
+	if(val.match(/^[\(\{\[\-\+0-9][\(\{\[\-\+\*\/\)\}\]\.0-9]*[\)\}\]0-9]$/)){
+		try {
+			reslt = eval(val);
+		} catch(e) {
+			//alert("演算失敗");
+			reslt = val;
+		}
+	} else {
+		//alert("演算不可");
+		reslt = val;
+	}
+
+	return reslt;
+}
+
 
 //==================================================
 //ドキュメントサイズを返す
