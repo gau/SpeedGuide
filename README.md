@@ -29,8 +29,8 @@
 
 1. 以下の場所に、「Speed Guide.jsx」をコピーします。Windows版ではお使いのPhotoshopのモードによって保存する場所が異なりますのでご注意ください。
  * 【Mac】/Applications/Adobe Photoshop [CS6/CC]/Presets/Scripts/
- * 【Windows 64bit版】C:\Program Files\Adobe\Adobe Photoshop [CS6/CC/CC2014] (64 Bit)\Presets\Scripts\
- * 【Windows 32bit版】C:\Program Files (x86)\Adobe\Adobe Photoshop [CS6/CC]\Presets\Scripts\
+ * 【Windows 64bit版】C:\Program Files\Adobe\Adobe Photoshop {CS6|CC|CC2014} (64 Bit)\Presets\Scripts\
+ * 【Windows 32bit版】C:\Program Files (x86)\Adobe\Adobe Photoshop {CS6|CC}\Presets\Scripts\
 2. Photoshopを再起動します。
 3. “ファイル”メニュー→“スクリプト”に“Speed Guide”と表示されていればインストール成功です。
 
