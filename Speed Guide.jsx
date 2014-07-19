@@ -1,7 +1,11 @@
 #target photoshop
-//SpeedGuide.jsx
-//Created by Toshiyuki Takahashi - Graphic Arts Unit
-//www.graphicartsunit.com
+/*
+SpeedGuide.jsx
+Copyright (c) 2014 Toshiyuki Takahashi, Graphic Arts Unit
+Released under the MIT license
+http://opensource.org/licenses/mit-license.php
+www.graphicartsunit.com
+*/
 
 //==================================================
 //初期値
@@ -15,7 +19,7 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.8.0";
+const SCRIPT_VERSION = "0.8.1";
 var dialogs = {main:null, csv:null, showall:null};
 var enableUnits = ["m", "km", "ft", "yd", "mi"];
 

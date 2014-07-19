@@ -8,6 +8,7 @@
 
 ### 更新履歴 ###
 
+* 0.8.1：ライセンス表記追加
 * 0.8.0：繰り返し作成に対応
 * 0.7.1：中央起点の記号を「$」に変更
 * 0.7.0：中央起点に対応／単位変換時の処理を改良
@@ -166,6 +167,13 @@
 
 -----
 
+### ライセンス ###
+
+* Speed Guide.jsx
+* Copyright (c) 2014 Toshiyuki Takahashi
+* Released under the MIT license
+* [http://opensource.org/licenses/mit-license.php](http://opensource.org/licenses/mit-license.php)
+
 * Created by Toshiyuki Takahashi (Graphic Arts Unit)
-* [Graphic Arts Unit](http://www.graphicartsunit.com)
+* [Graphic Arts Unit](http://www.graphicartsunit.com/)
 * [Twitter](https://twitter.com/gautt)
