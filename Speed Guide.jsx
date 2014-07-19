@@ -1,7 +1,7 @@
 #target photoshop
 /*
 SpeedGuide.jsx
-Copyright (c) 2014 Toshiyuki Takahashi, Graphic Arts Unit
+Copyright (c) 2014 Toshiyuki Takahashi
 Released under the MIT license
 http://opensource.org/licenses/mit-license.php
 www.graphicartsunit.com
@@ -19,7 +19,7 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.8.1";
+const SCRIPT_VERSION = "0.8.2";
 var dialogs = {main:null, csv:null, showall:null};
 var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
@@ -279,7 +279,11 @@ Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
 			}
 			cnunits = targetunits;
 		} else if(targetunits == "%") {
+//alert("koko");
 			cnval = new UnitValue(cnval, cnunits)/getDocSize(this.direction, cnunits)*100;
+			if(cnunits != "px") {
+				cnval *= getRaito(cnunits);
+			}
 			docSize = new UnitValue(100, "%");
 			cnunits = "%";
 		}
