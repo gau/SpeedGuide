@@ -6,7 +6,6 @@ Released under the MIT license
 http://opensource.org/licenses/mit-license.php
 www.graphicartsunit.com
 */
-
 //==================================================
 //初期値
 //==================================================
@@ -19,7 +18,7 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.8.2";
+const SCRIPT_VERSION = "0.8.3";
 var dialogs = {main:null, csv:null, showall:null};
 var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
@@ -104,7 +103,6 @@ var initMainDialog = function(w){
 		settings.ver = thisObj.ver.text;
 		settings.hor = thisObj.hor.text;
 		settings.clearall = thisObj.clearall.value;
-		thisObj.close();
 		try {
 			app.activeDocument.suspendHistory(SCRIPT_TITLE, 'sgStart()');
 		} catch (e) {
@@ -202,7 +200,7 @@ var createShowAllDialog = function(){
 };
 var initShowAllDialog = function(w){  
 	w.okBtn.onClick = function(){
-		w.close(1);
+		w.close();
 	};
  };
 var startShowAllDialog = function(w){
@@ -263,6 +261,7 @@ Guide.prototype.init = function() {
 	} else {
 		//alert("Null");
 	}
+	this.checkError();
 };
 Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
 	cnval = Number(cnval);
@@ -279,7 +278,6 @@ Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
 			}
 			cnunits = targetunits;
 		} else if(targetunits == "%") {
-//alert("koko");
 			cnval = new UnitValue(cnval, cnunits)/getDocSize(this.direction, cnunits)*100;
 			if(cnunits != "px") {
 				cnval *= getRaito(cnunits);
@@ -299,6 +297,15 @@ Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
 
 	return [Number(cnval), cnunits];
 };
+Guide.prototype.checkError = function() {
+	//値が有効かどうか
+	if(this.val != null && !isNaN(this.val)) {
+		this.success = true;
+	} else {
+		this.success = false;
+	}
+	return this.success;
+};
 Guide.prototype.addGuide = function() {
 	//値が有効かどうか
 	if(this.val != null && !isNaN(this.val)) {
@@ -317,29 +324,37 @@ Guide.prototype.addGuide = function() {
 //==================================================
 function sgStart(){
 
-	var vgs, hgs, res, errorArray=[];
+	var guides, vgs, hgs, res, errors=[];
 
 	// 既存ガイドの消去
 	if(settings.clearall) app.activeDocument.guides.removeAll();
+
 	// ガイド追加を実行
 	vgs = getGuides(settings.ver, Direction.VERTICAL);
 	hgs = getGuides(settings.hor, Direction.HORIZONTAL);
-	if(vgs) {
-		for (var i=0; i<vgs.length; i++) {
-			res = vgs[i].addGuide();
-			if (!res[0]) errorArray.push(res[1]);
-		}
+	guides = Array.prototype.concat.apply(vgs,hgs);
+	for (var i in guides){
+		if (!guides[i].success) errors.push("“" + guides[i].origin + "”");
 	}
-	if(hgs) {
-		for (var i=0; i<hgs.length; i++) {
-			res = hgs[i].addGuide();
-			if (!res[0]) errorArray.push(res[1]);
-		}
-	}
+
+	//ガイドを強制的に表示させる
+	var desc = [new ActionDescriptor(), new ActionDescriptor()];
+	desc[0].putUnitDouble( charIDToTypeID( "Pstn" ), charIDToTypeID( "#Pxl" ), 10000);
+	desc[0].putEnumerated( charIDToTypeID( "Ornt" ), charIDToTypeID( "Ornt" ), charIDToTypeID( "Hrzn" ));
+	desc[1].putObject( charIDToTypeID( "Nw  " ), charIDToTypeID( "Gd  " ), desc[0]);
+	executeAction( charIDToTypeID( "Mk  " ), desc[1], DialogModes.NO );
+	app.activeDocument.guides[app.activeDocument.guides.length-1].remove();
+
 	// アラート表示
-	if(errorArray && errorArray.length > 0) {
-		alert("無効な値があったため " + errorArray.length + " 組のガイドが作成できませんでした\n無効：" + errorArray);
+	if(errors.length > 0) {
+		alert("無効な値が " + errors.length + " 点あります\n" + errors);
+	} else {
+		for (var i in guides){
+			guides[i].addGuide();
+		}
+		dialogs.main.close();
 	}
+
 }
 
 //==================================================
@@ -362,14 +377,14 @@ function getGuides(str, drc) {
 		if(sptArray[i].length > 0) {
 			var guide = new Guide({origin:sptArray[i], direction:drc});
 			//繰り返し数取得
-			var regArray = /(.+)(@)([0-9]+)$/i.exec(sptArray[i]);
+			var regArray = /(.+)(@)([0-9]+)$/gi.exec(sptArray[i]);
 			if(regArray){
 				guide.repeat = Number(regArray[3]);
 				sptArray[i] = regArray[1];
 			}
 			delete regArray;
 			// オフセット取得
-			var regArray = /(.+)(>)([^a-z%@]+)([a-z%]*)$/i.exec(sptArray[i]);
+			var regArray = /(.+)(>)([^a-z%@]+)([a-z%]*)$/gi.exec(sptArray[i]);
 			if(regArray){
 				if(regArray[4].length<1) regArray[4] = new UnitValue(castValue(1)).type;
 				sptArray[i] = regArray[1];
@@ -403,6 +418,7 @@ function getGuides(str, drc) {
 				guide.spanUnits = guide.units;
 			}
 
+			if(!guide.val || guide.val.length < 1) guide.val = null;
 			guide.init();
 
 			// 繰り返し処理
@@ -423,7 +439,7 @@ function getGuides(str, drc) {
 }
 
 //==================================================
-//四則演算の結果を返す（演算付加の場合はそのままの値を返す）
+//四則演算の結果を返す（演算不可の場合はそのままの値を返す）
 //==================================================
 function calcValue(val) {
 
