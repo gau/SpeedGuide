@@ -18,7 +18,7 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.8.3";
+const SCRIPT_VERSION = "0.8.4";
 var dialogs = {main:null, csv:null, showall:null};
 var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
@@ -268,26 +268,30 @@ Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
 	//ドキュメントサイズを取得
 	var docSize = getDocSize(this.direction, targetunits);
 	//単位を統一して解像度比率を適用
-	if(targetunits != cnunits && cnunits != "%") {
-		if(targetunits != "%"){
-			cnval = new UnitValue(cnval, cnunits).as(targetunits);
-			if(targetunits == "px") {
-				cnval *= getRaito(cnunits);
-			} else if(cnunits == "px") {
-				cnval /= getRaito(cnunits);
+	if(targetunits != cnunits) {
+		if(cnunits != "%") {
+			if(targetunits != "%"){
+				cnval = new UnitValue(cnval, cnunits).as(targetunits);
+				if(targetunits == "px") {
+					cnval *= getRaito(cnunits);
+				} else if(cnunits == "px") {
+					cnval /= getRaito(cnunits);
+				}
+				cnunits = targetunits;
+			} else if(targetunits == "%") {
+				cnval = new UnitValue(cnval, cnunits)/getDocSize(this.direction, cnunits)*100;
+				if(cnunits != "px") {
+					cnval *= getRaito(cnunits);
+				}
+				docSize = new UnitValue(100, "%");
+				cnunits = "%";
 			}
+		} else {
+			cnval = new UnitValue(docSize, targetunits)*cnval/100;
 			cnunits = targetunits;
-		} else if(targetunits == "%") {
-			cnval = new UnitValue(cnval, cnunits)/getDocSize(this.direction, cnunits)*100;
-			if(cnunits != "px") {
-				cnval *= getRaito(cnunits);
-			}
-			docSize = new UnitValue(100, "%");
-			cnunits = "%";
 		}
 	} else if(cnunits == "%") {
 		docSize = new UnitValue(100, "%");
-	} else {
 	}
 	//起算位置をシフト
 	if(offset) {
