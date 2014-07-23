@@ -18,9 +18,8 @@ var settings = {
 
 //定数とグローバル変数
 const SCRIPT_TITLE = "SpeedGuide";
-const SCRIPT_VERSION = "0.8.4";
+const SCRIPT_VERSION = "0.8.5";
 var dialogs = {main:null, csv:null, showall:null};
-var enableUnits = ["m", "km", "ft", "yd", "mi"];
 
 //==================================================
 //メインダイアログ
@@ -246,60 +245,49 @@ Guide.prototype.init = function() {
 		}
 		//数値の場合の処理
 		if(!isNaN(this.val) && !isNaN(this.span) && !isNaN(this.repeat)){
-			// 値を整理
-			var vu = this.convertVal(this.val, this.units, new UnitValue(castValue(1)).type, true);
+			// 単位をピクセルに統一
+			var vu = this.convertVal(this.val, this.units, "px", true);
 			this.val = vu[0];
 			this.units = vu[1];
-			vu = this.convertVal(this.span, this.spanUnits, new UnitValue(castValue(1)).type, false);
-			// 開始位置と間隔の単位を合わせる
-			if(this.units != this.spanUnits) {
-				vu = this.convertVal(vu[0], vu[1], this.units, false);
-				this.span = vu[0];
-				this.spanUnits = vu[1];
-			}
+			var vu = this.convertVal(this.span, this.spanUnits, "px", false);
+			this.span = vu[0];
+			this.spanUnits = vu[1];
 		}
 	} else {
 		//alert("Null");
 	}
 	this.checkError();
 };
-Guide.prototype.convertVal = function(cnval, cnunits, targetunits, offset) {
-	cnval = Number(cnval);
-	//ドキュメントサイズを取得
-	var docSize = getDocSize(this.direction, targetunits);
+Guide.prototype.convertVal = function(cnval, cnunits, targetunits, isOffset) {
+
 	//単位を統一して解像度比率を適用
-	if(targetunits != cnunits) {
-		if(cnunits != "%") {
-			if(targetunits != "%"){
-				cnval = new UnitValue(cnval, cnunits).as(targetunits);
-				if(targetunits == "px") {
-					cnval *= getRaito(cnunits);
-				} else if(cnunits == "px") {
-					cnval /= getRaito(cnunits);
-				}
-				cnunits = targetunits;
-			} else if(targetunits == "%") {
-				cnval = new UnitValue(cnval, cnunits)/getDocSize(this.direction, cnunits)*100;
-				if(cnunits != "px") {
-					cnval *= getRaito(cnunits);
-				}
-				docSize = new UnitValue(100, "%");
-				cnunits = "%";
+	cnval = Number(cnval);
+	if(cnunits == "%") {
+		cnval = getDocSize(this.direction, targetunits) * cnval / 100;
+		cnunits = targetunits;
+	}
+	if(cnunits != targetunits) {
+		if(targetunits != "%") {
+			//ここで変換
+			cnval = new UnitValue(cnval, cnunits).as(targetunits);
+			if(targetunits == "px") {
+				cnval *= app.activeDocument.resolution / 72;
+			} else {
+				cnval /= app.activeDocument.resolution / 72;
 			}
 		} else {
-			cnval = new UnitValue(docSize, targetunits)*cnval/100;
-			cnunits = targetunits;
+			cnval = cnval / getDocSize(this.direction, cnunits) * 100;
 		}
-	} else if(cnunits == "%") {
-		docSize = new UnitValue(100, "%");
+		cnunits = targetunits;
 	}
 	//起算位置をシフト
-	if(offset) {
-		if(this.center) cnval = cnval + docSize/2;
-		if(this.invert) cnval = docSize - cnval;
+	if(isOffset) {
+		if(this.center) cnval = cnval + getDocSize(this.direction, cnunits)/2;
+		if(this.invert) cnval = getDocSize(this.direction, cnunits) - cnval;
 	}
+	if(!isNaN(cnval.value)) cnval = cnval.value;
 
-	return [Number(cnval), cnunits];
+	return [cnval, cnunits];
 };
 Guide.prototype.checkError = function() {
 	//値が有効かどうか
@@ -311,16 +299,25 @@ Guide.prototype.checkError = function() {
 	return this.success;
 };
 Guide.prototype.addGuide = function() {
-	//値が有効かどうか
-	if(this.val != null && !isNaN(this.val)) {
-		if(this.units == "%") this.val /= 100;
-		//ガイドを引く
-		app.activeDocument.guides.add(this.direction, new UnitValue(this.val, this.units));
+	//ガイドを引く
+	try {
+		var dirc;
+		var desc = [new ActionDescriptor(), new ActionDescriptor()];
+		desc[0].putUnitDouble( charIDToTypeID( "Pstn" ), charIDToTypeID( "#Pxl" ), Number(this.val));
+		if(this.direction == Direction.VERTICAL){
+			dirc = charIDToTypeID( "Vrtc" );
+		} else if(this.direction == Direction.HORIZONTAL) {
+			dirc = charIDToTypeID( "Hrzn" );
+		} else {
+			this.success = false;
+		}
+		desc[0].putEnumerated( charIDToTypeID( "Ornt" ), charIDToTypeID( "Ornt" ), dirc);
+		desc[1].putObject( charIDToTypeID( "Nw  " ), charIDToTypeID( "Gd  " ), desc[0]);
+		executeAction( charIDToTypeID( "Mk  " ), desc[1], DialogModes.NO );
 		this.success = true;
-	} else {
+	} catch(e) {
 		this.success = false;
 	}
-	return [this.success, this.origin];
 };
 
 //==================================================
@@ -332,7 +329,6 @@ function sgStart(){
 
 	// 既存ガイドの消去
 	if(settings.clearall) app.activeDocument.guides.removeAll();
-
 	// ガイド追加を実行
 	vgs = getGuides(settings.ver, Direction.VERTICAL);
 	hgs = getGuides(settings.hor, Direction.HORIZONTAL);
@@ -340,15 +336,6 @@ function sgStart(){
 	for (var i in guides){
 		if (!guides[i].success) errors.push("“" + guides[i].origin + "”");
 	}
-
-	//ガイドを強制的に表示させる
-	var desc = [new ActionDescriptor(), new ActionDescriptor()];
-	desc[0].putUnitDouble( charIDToTypeID( "Pstn" ), charIDToTypeID( "#Pxl" ), 10000);
-	desc[0].putEnumerated( charIDToTypeID( "Ornt" ), charIDToTypeID( "Ornt" ), charIDToTypeID( "Hrzn" ));
-	desc[1].putObject( charIDToTypeID( "Nw  " ), charIDToTypeID( "Gd  " ), desc[0]);
-	executeAction( charIDToTypeID( "Mk  " ), desc[1], DialogModes.NO );
-	app.activeDocument.guides[app.activeDocument.guides.length-1].remove();
-
 	// アラート表示
 	if(errors.length > 0) {
 		alert("無効な値が " + errors.length + " 点あります\n" + errors);
@@ -424,7 +411,6 @@ function getGuides(str, drc) {
 
 			if(!guide.val || guide.val.length < 1) guide.val = null;
 			guide.init();
-
 			// 繰り返し処理
 			if(guide.repeat > 1 && guide.span != 0) {
 				var c = guide.repeat;
@@ -465,27 +451,13 @@ function calcValue(val) {
 }
 
 //==================================================
-//解像度比率を返す
-//==================================================
-function getRaito(unit) {
-
-	var raito = 1, docUnits = new UnitValue(castValue(1)).type;
-
-	if(app.preferences.rulerUnits == Units.PERCENT) docUnits = "px";
-	if(unit != docUnits) {
-		raito = Math.round(app.activeDocument.resolution/72*100)/100;
-	}
-	return raito;
-}
-
-//==================================================
 //ドキュメントサイズを返す
 //==================================================
 function getDocSize(drc, unit) {
 
-	var docSize, sru;
+	var docSize, originalRulerUnits, orignalResolution;
 
-	// 単位のチェック（%のときは100で返す）
+	// 単位のチェック
 	if(!unit || unit.length < 1){
 		unit = new UnitValue(castValue(1)).type;
 	}
@@ -497,7 +469,7 @@ function getDocSize(drc, unit) {
 		return false;
 	}
 	// 現在の定規単位を保存
-	sru = app.preferences.rulerUnits;
+	originalRulerUnits = app.preferences.rulerUnits;
 	// 定規単位が%のときはPixelに変更
 	if(app.preferences.rulerUnits == Units.PERCENT) app.preferences.rulerUnits = Units.PIXELS;
 	// ドキュメントサイズを取得する
@@ -513,7 +485,15 @@ function getDocSize(drc, unit) {
 			break;
 	}
 	// 定規単位を戻す
-	app.preferences.rulerUnits = sru;
+	app.preferences.rulerUnits = originalRulerUnits;
+
+	if(unit != docUnits) {
+		if(docUnits == "px") {
+			docSize /= app.activeDocument.resolution / 72;
+		} else {
+			docSize *= app.activeDocument.resolution / 72;
+		}
+	}
 
 	return new UnitValue(docSize.as(unit), unit);
 }
@@ -596,18 +576,6 @@ function getAllGuide() {
 //==================================================
 function castValue(n) {
 	return n + app.activeDocument.width - app.activeDocument.width;
-}
-
-//==================================================
-//配列に値が存在するか
-//==================================================
-function arrayIndexOf(ary, d) {
-	for (var i=0; i<ary.length; i++) {
-		if(ary[i] == d) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 //==================================================
